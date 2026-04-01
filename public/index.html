@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Mulkia Extractor</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Premium Dark Blue Theme */
+      --bg-gradient: linear-gradient(135deg, #0a1128 0%, #162238 100%);
+      --bg-solid: #0a1128;
+      --card-bg: rgba(22, 34, 56, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.1);
+      --success: #10b981;
+      --table-header: rgba(15, 23, 42, 0.8);
+      --table-border: rgba(255, 255, 255, 0.05);
+      --table-row-hover: rgba(56, 189, 248, 0.05);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Telegram Theme Overrides if any, though we force our premium theme */
+    body.tg-theme-active {
+      --bg-gradient: var(--tg-theme-bg-color, linear-gradient(135deg, #0a1128 0%, #162238 100%));
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-solid);
+      background-image: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100dvh;
+      padding-bottom: env(safe-area-inset-bottom, 24px);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ── Header ── */
+    .header {
+      padding: 24px 20px 16px;
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(10, 17, 40, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      text-align: center;
+    }
+    .header h1 { 
+      font-size: 22px; 
+      font-weight: 700; 
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+    .header p { 
+      font-size: 13px; 
+      color: var(--text-muted); 
+      font-weight: 400;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── Upload zone ── */
+    .upload-wrap { padding: 24px 20px; }
+
+    .drop-zone {
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .drop-zone::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .drop-zone:hover::before, .drop-zone.drag-over::before {
+      opacity: 1;
+    }
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; z-index: 2;
+    }
+    .drop-icon-svg {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 16px;
+      color: var(--accent);
+      opacity: 0.9;
+    }
+    .drop-text { 
+      font-size: 16px; 
+      font-weight: 600; 
+      color: var(--text-main); 
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    .drop-sub { 
+      font-size: 13px; 
+      color: var(--text-muted); 
+      font-weight: 400;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Progress ── */
+    #progress-wrap {
+      margin: 0 20px 16px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      display: none;
+    }
+    #progress-bar {
+      height: 4px;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 10px var(--accent);
+    }
+    #status {
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 12px 16px;
+      font-weight: 500;
+    }
+
+    /* ── Stats pills ── */
+    .stats-row {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      padding: 0 20px 16px;
+    }
+    .pill {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-main);
+      backdrop-filter: blur(4px);
+    }
+    .pill span { color: var(--accent); font-weight: 600; }
+
+    /* ── Errors ── */
+    #errors-box {
+      margin: 0 20px 16px;
+      background: var(--danger-bg);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      font-size: 13px;
+      color: #fca5a5;
+      display: none;
+    }
+    #errors-box strong { color: var(--danger); font-weight: 600; display: block; margin-bottom: 8px; }
+    #errors-box ul { padding-left: 20px; margin: 0; }
+    #errors-box li { margin-bottom: 4px; line-height: 1.4; }
+
+    /* ── Table section ── */
+    .table-section { padding: 0 20px 20px; }
+    .table-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    .table-header h2 { font-size: 16px; font-weight: 600; color: var(--text-main); }
+    .table-header small { color: var(--text-muted); font-size: 13px; font-weight: 500; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+    }
+    /* Customize scrollbar for table */
+    .table-wrap::-webkit-scrollbar { height: 6px; }
+    .table-wrap::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+    .table-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    .table-wrap::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13px;
+      min-width: 800px;
+    }
+    thead th {
+      background: var(--table-header);
+      color: var(--text-muted);
+      padding: 14px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+      position: sticky; top: 0;
+      border-bottom: 1px solid var(--table-border);
+      z-index: 5;
+    }
+    tbody tr { transition: background 0.2s; }
+    tbody tr:hover { background: var(--table-row-hover); }
+    tbody td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--table-border);
+      white-space: nowrap;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-main);
+      font-weight: 400;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    td.nil { color: rgba(255,255,255,0.2); font-style: italic; }
+
+    /* ── Bottom action bar ── */
+    .action-bar {
+      position: sticky; bottom: 0;
+      background: rgba(10, 17, 40, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid var(--card-border);
+      padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+      display: flex; gap: 12px;
+      z-index: 10;
+    }
+    .btn {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex; justify-content: center; align-items: center; gap: 8px;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { 
+      background: var(--accent); 
+      color: #0f172a; 
+      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+    }
+    .btn-primary:not(:disabled):hover {
+      background: var(--accent-hover);
+      box-shadow: 0 4px 16px rgba(56, 189, 248, 0.4);
+      transform: translateY(-1px);
+    }
+    .btn-primary:not(:disabled):active { transform: translateY(1px); box-shadow: 0 2px 8px rgba(56, 189, 248, 0.3); }
+    
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:not(:disabled):hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    .btn-secondary:not(:disabled):active { background: rgba(255, 255, 255, 0.02); }
+
+    .btn-icon-svg { width: 18px; height: 18px; }
+
+    /* ── Empty state ── */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      display: none;
+    }
+    .empty.visible { display: block; }
+    .empty-icon-svg { 
+      width: 64px; 
+      height: 64px; 
+      color: var(--text-muted); 
+      margin: 0 auto 16px; 
+      opacity: 0.5;
+    }
+    .empty p { 
+      font-size: 14px; 
+      color: var(--text-muted); 
+      line-height: 1.6;
+      font-weight: 400;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(15, 23, 42, 0.2);
+      border-top-color: #0f172a;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Loading overlay ── */
+    #overlay {
+      position: fixed; inset: 0;
+      background: rgba(10, 17, 40, 0.7);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center;
+      z-index: 100;
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    #overlay.visible { display: flex; opacity: 1; }
+    .overlay-card {
+      background: rgba(22, 34, 56, 0.9);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      text-align: center;
+      max-width: 320px; width: 90%;
+      box-shadow: var(--shadow-lg);
+      transform: scale(0.95);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    #overlay.visible .overlay-card { transform: scale(1); }
+    .overlay-spinner {
+      width: 48px; height: 48px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+      margin: 0 auto 24px;
+    }
+    .overlay-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--text-main); }
+    .overlay-sub { font-size: 14px; color: var(--text-muted); font-weight: 400; line-height: 1.4; }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="overlay">
+  <div class="overlay-card">
+    <div class="overlay-spinner"></div>
+    <div class="overlay-title" id="overlay-title">Processing</div>
+    <div class="overlay-sub" id="overlay-sub">Please wait</div>
+  </div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <h1>Mulkia Extractor</h1>
+  <p>Upload files to instantly extract vehicle data</p>
+</div>
+
+<!-- Upload zone -->
+<div class="upload-wrap">
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput"
+      accept=".pdf,.jpg,.jpeg,.png,.bmp,.tiff,.tif,.webp,.xlsx,.xls,.zip"
+      multiple />
+    <svg class="drop-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+    </svg>
+    <div class="drop-text">Tap to upload or drag & drop</div>
+    <div class="drop-sub">PDF \&middot; Image \&middot; ZIP \&middot; Excel &nbsp;|&nbsp; Max 50 MB</div>
+  </div>
+</div>
+
+<!-- Progress -->
+<div id="progress-wrap">
+  <div id="progress-bar"></div>
+  <div id="status">Starting</div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row" id="stats-row" style="display:none"></div>
+
+<!-- Errors -->
+<div id="errors-box"><strong>Some files failed:</strong><ul id="errors-list"></ul></div>
+
+<!-- Table -->
+<div class="table-section" id="table-section" style="display:none">
+  <div class="table-header">
+    <h2>Extracted Vehicles</h2>
+    <small id="count-label"></small>
+  </div>
+  <div class="table-wrap">
+    <table id="vehicle-table">
+      <thead>
+        <tr>
+          <th>Asset No</th>
+          <th>Vehicle Type</th>
+          <th>Company Name</th>
+          <th>Installation Type</th>
+          <th>Asateel</th>
+          <th>Securepath</th>
+          <th>Install Cert</th>
+          <th>Securepath Plus</th>
+          <th>Shaheen</th>
+          <th>Chassis No</th>
+          <th>User ID</th>
+          <th>Pass</th>
+          <th>IMEI</th>
+        </tr>
+      </thead>
+      <tbody id="vehicle-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Empty -->
+<div class="empty" id="empty-state">
+  <svg class="empty-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+  <p>Upload a mulkia PDF, photo, ZIP, or Excel file<br>to extract vehicle data.</p>
+</div>
+
+<!-- Action bar -->
+<div class="action-bar" id="action-bar" style="display:none">
+  <button class="btn btn-secondary" id="btn-clear">
+    <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+    Clear
+  </button>
+  <button class="btn btn-primary" id="btn-export">
+    <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+    </svg>
+    Export Excel
+  </button>
+</div>
+
+<script>
+  // ── Telegram WebApp init ────────────────────────────────────────────────────
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+  }
+
+  // ── State ────────────────────────────────────────────────────────────────────
+  let allVehicles = [];
+
+  // ── Elements ─────────────────────────────────────────────────────────────────
+  const dropZone     = document.getElementById('dropZone');
+  const fileInput    = document.getElementById('fileInput');
+  const progressWrap = document.getElementById('progress-wrap');
+  const progressBar  = document.getElementById('progress-bar');
+  const statusEl     = document.getElementById('status');
+  const statsRow     = document.getElementById('stats-row');
+  const errorsBox    = document.getElementById('errors-box');
+  const errorsList   = document.getElementById('errors-list');
+  const tableSection = document.getElementById('table-section');
+  const vehicleBody  = document.getElementById('vehicle-body');
+  const countLabel   = document.getElementById('count-label');
+  const emptyState   = document.getElementById('empty-state');
+  const actionBar    = document.getElementById('action-bar');
+  const btnClear     = document.getElementById('btn-clear');
+  const btnExport    = document.getElementById('btn-export');
+  const overlay      = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlay-title');
+  const overlaySub   = document.getElementById('overlay-sub');
+
+  // ── Drag & drop ─────────────────────────────────────────────────────────────
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    handleFiles([...e.dataTransfer.files]);
+  });
+  fileInput.addEventListener('change', () => handleFiles([...fileInput.files]));
+
+  // ── Handle file selection ────────────────────────────────────────────────────
+  async function handleFiles(files) {
+    if (!files.length) return;
+    fileInput.value = '';
+
+    for (const file of files) {
+      await uploadFile(file);
+    }
+  }
+
+  async function uploadFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const isImage = ['jpg','jpeg','png','bmp','tiff','tif','webp'].includes(ext);
+
+    showOverlay(
+      isImage ? 'Running OCR...' : `Processing ${file.name}`,
+      isImage ? 'Extracting text from image' : 'Extracting vehicle data'
+    );
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    let result;
+    try {
+      const res = await fetch('/api/extract', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      result = await res.json();
+    } catch (e) {
+      hideOverlay();
+      showToast(`${e.message}`, 'error');
+      return;
+    }
+
+    hideOverlay();
+
+    const { vehicles = [], stats = {}, errors = [] } = result;
+    allVehicles.push(...vehicles);
+
+    renderStats(stats, file.name);
+    renderErrors(errors);
+    renderTable();
+
+    if (vehicles.length > 0) {
+      showToast(`${vehicles.length} vehicle(s) extracted`, 'success');
+    }
+  }
+
+  // ── Render stats pills ────────────────────────────────────────────────────────
+  function renderStats(stats, label) {
+    statsRow.style.display = 'flex';
+    const parts = [];
+    if (stats.pdf)   parts.push(`PDFs: <span>${stats.pdf}</span>`);
+    if (stats.image) parts.push(`Images: <span>${stats.image}</span>`);
+    if (stats.excel) parts.push(`Excel: <span>${stats.excel}</span>`);
+    if (stats.failed) parts.push(`Failed: <span>${stats.failed}</span>`);
+    if (stats.ocrUsed) parts.push(`<span>OCR used</span>`);
+
+    const pill = document.createElement('div');
+    pill.className = 'pill';
+    pill.innerHTML = `<span style="color:var(--text-muted);font-weight:400;margin-right:6px;">${label}</span> ` + (parts.length ? parts.join(' &middot; ') : '0 records');
+    statsRow.appendChild(pill);
+  }
+
+  // ── Render errors ─────────────────────────────────────────────────────────────
+  function renderErrors(errors) {
+    if (!errors?.length) return;
+    errorsBox.style.display = 'block';
+    for (const e of errors) {
+      const li = document.createElement('li');
+      li.textContent = `${e.file || e}: ${e.error || ''}`;
+      errorsList.appendChild(li);
+    }
+  }
+
+  // ── Render table ──────────────────────────────────────────────────────────────
+  function renderTable() {
+    vehicleBody.innerHTML = '';
+
+    if (!allVehicles.length) {
+      tableSection.style.display = 'none';
+      actionBar.style.display    = 'none';
+      emptyState.classList.add('visible');
+      return;
+    }
+
+    emptyState.classList.remove('visible');
+    tableSection.style.display = 'block';
+    actionBar.style.display    = 'flex';
+    countLabel.textContent     = `${allVehicles.length} record(s)`;
+
+    for (const v of allVehicles) {
+      const cells = [
+        v.assetNo, v.vehicleType, v.companyName,
+        v.installationType || 'Nil', v.asateel || 'Nil',
+        v.securepath || 'Nil', v.installationCertificate || 'Nil',
+        v.securepathPlus || 'Nil', v.shaheen || 'Nil',
+        v.chassisNo, v.userId, v.pass, v.imei,
+      ];
+      const tr = document.createElement('tr');
+      for (const c of cells) {
+        const td = document.createElement('td');
+        td.textContent = c || '';
+        if (!c || c === 'Nil') td.classList.add('nil');
+        tr.appendChild(td);
+      }
+      vehicleBody.appendChild(tr);
+    }
+  }
+
+  // ── Clear ────────────────────────────────────────────────────────────────────
+  btnClear.addEventListener('click', () => {
+    allVehicles = [];
+    statsRow.innerHTML = ''; statsRow.style.display = 'none';
+    errorsBox.style.display = 'none'; errorsList.innerHTML = '';
+    renderTable();
+    emptyState.classList.add('visible');
+  });
+
+  // ── Export Excel ─────────────────────────────────────────────────────────────
+  btnExport.addEventListener('click', async () => {
+    if (!allVehicles.length) return;
+
+    btnExport.disabled = true;
+    btnExport.innerHTML = `<span class="spinner"></span> Generating...`;
+
+    try {
+      const userId = tg?.initDataUnsafe?.user?.id;
+
+      if (userId) {
+        // ── Inside Telegram: send file directly to the user's chat ────────────
+        const res = await fetch('/api/export-to-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vehicles: allVehicles, userId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        showToast('Excel sent to your chat!', 'success');
+
+      } else {
+        // ── Outside Telegram (browser / testing): get a download token ────────
+        const res = await fetch('/api/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vehicles: allVehicles }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        // Direct link download — works in regular browsers
+        const a = document.createElement('a');
+        a.href = `/api/download/${data.token}`;
+        a.download = `mulkia_${new Date().toISOString().slice(0,10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => a.remove(), 500);
+        showToast('Downloading...', 'success');
+      }
+
+    } catch (e) {
+      showToast(`Export failed: ${e.message}`, 'error');
+    } finally {
+      btnExport.disabled = false;
+      btnExport.innerHTML = `
+        <svg class="btn-icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        </svg>
+        Export Excel`;
+    }
+  });
+
+  // ── Overlay helpers ───────────────────────────────────────────────────────────
+  function showOverlay(title, sub) {
+    overlayTitle.textContent = title;
+    overlaySub.textContent   = sub;
+    overlay.classList.add('visible');
+  }
+  function hideOverlay() { overlay.classList.remove('visible'); }
+
+  // ── Toast notifications ───────────────────────────────────────────────────────
+  function showToast(msg, type = 'info') {
+    if (tg?.showPopup) {
+      // Don't show generic error in Telegram Native popup if you want a classy custom one, 
+      // but tg.showPopup is standard.
+      tg.showPopup({ message: msg }, () => {});
+      return;
+    }
+    // Fallback: classy toast
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+      background:${type === 'error' ? 'var(--danger)' : 'var(--success)'};
+      color:#fff; padding:12px 24px; border-radius:30px;
+      font-size:14px; font-weight:500; z-index:200;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+      max-width:90%; text-align:center;
+      animation: fadeIn 0.3s ease;
+      font-family: 'Inter', sans-serif;
+    `;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────────
+  emptyState.classList.add('visible');
+</script>
+</body>
+</html>
